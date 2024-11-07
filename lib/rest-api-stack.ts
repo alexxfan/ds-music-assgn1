@@ -54,6 +54,42 @@ export class RestAPIStack extends cdk.Stack {
           },
         }
         );
+
+        const newSongFn = new lambdanode.NodejsFunction(this, "AddSongFn", {
+          architecture: lambda.Architecture.ARM_64,
+          runtime: lambda.Runtime.NODEJS_16_X,
+          entry: `${__dirname}/../lambdas/addSong.ts`,
+          timeout: cdk.Duration.seconds(10),
+          memorySize: 128,
+          environment: {
+            TABLE_NAME: songsTable.tableName,
+            REGION: "eu-west-1",
+          },
+        });
+
+        const deleteSongFn = new lambdanode.NodejsFunction(this, "DeleteSongFn", {
+          architecture: lambda.Architecture.ARM_64,
+          runtime: lambda.Runtime.NODEJS_18_X,
+          entry: `${__dirname}/../lambdas/deleteSong.ts`,
+          timeout: cdk.Duration.seconds(10),
+          memorySize: 128,
+          environment: {
+            TABLE_NAME: songsTable.tableName,
+            REGION: 'eu-west-1',
+          },
+        });
+
+        const updateSongFn = new lambdanode.NodejsFunction(this, "UpdateSongFn", {
+          architecture: lambda.Architecture.ARM_64,
+          runtime: lambda.Runtime.NODEJS_18_X,
+          entry: `${__dirname}/../lambdas/updateSong.ts`,
+          timeout: cdk.Duration.seconds(10),
+          memorySize: 128,
+          environment: {
+            TABLE_NAME: songsTable.tableName,
+            REGION: "eu-west-1",
+          },
+        });
         
         new custom.AwsCustomResource(this, "songsddbInitData", {
           onCreate: {
@@ -74,6 +110,9 @@ export class RestAPIStack extends cdk.Stack {
         // Permissions 
         songsTable.grantReadData(getSongByIdFn)
         songsTable.grantReadData(getAllSongsFn)
+        songsTable.grantReadWriteData(newSongFn)
+        songsTable.grantReadWriteData(deleteSongFn);
+        songsTable.grantReadWriteData(updateSongFn);
         
 
         const api = new apig.RestApi(this, "RestAPI", {
@@ -100,7 +139,22 @@ export class RestAPIStack extends cdk.Stack {
           "GET",
           new apig.LambdaIntegration(getSongByIdFn, { proxy: true })
         );
-        
+
+        songsEndpoint.addMethod(
+          "POST",
+          new apig.LambdaIntegration(newSongFn, { proxy: true })
+        );
+
+        songEndpoint.addMethod(
+          "DELETE",
+          new apig.LambdaIntegration(deleteSongFn, { proxy: true })
+        );
+
+        songEndpoint.addMethod(
+          "PUT",
+          new apig.LambdaIntegration(updateSongFn, { proxy: true })
+        );
+
       }
     }
     
