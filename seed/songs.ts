@@ -1,4 +1,4 @@
-import { Song } from '../shared/types';
+import { Song, SongArtist } from '../shared/types';
 
 export const songs: Song[] = [
   {
@@ -100,4 +100,22 @@ export const songs: Song[] = [
     duration: 598,
     explicit: true,
   }
+];
+
+export const songArtists: SongArtist[] = [
+  {
+    songId: 1,
+    artistName: "Kanye West",
+    stageName: "Yeezy",
+  },
+  {
+    songId: 2,
+    artistName: "Kendrick Lamar",
+    stageName: "K. Dot",
+  },
+  {
+    songId: 3,
+    artistName: "Frank Ocean",
+    stageName: "Lonny Breaux",
+  },
 ];

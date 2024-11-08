@@ -6,7 +6,7 @@ import * as custom from "aws-cdk-lib/custom-resources";
 import { Construct } from "constructs";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { generateBatch } from "../shared/util";
-import { songs } from "../seed/songs";
+import { songs, songArtists } from "../seed/songs";
 import * as apig from "aws-cdk-lib/aws-apigateway";
 
 export class RestAPIStack extends cdk.Stack {
@@ -19,6 +19,19 @@ export class RestAPIStack extends cdk.Stack {
       partitionKey: { name: "id", type: dynamodb.AttributeType.NUMBER },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       tableName: "Songs",
+    });
+
+    const songArtistsTable = new dynamodb.Table(this, "SongArtistTable", {
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      partitionKey: { name: "songId", type: dynamodb.AttributeType.NUMBER },
+      sortKey: { name: "artistName", type: dynamodb.AttributeType.STRING },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      tableName: "SongArtist",
+    });
+    
+    songArtistsTable.addLocalSecondaryIndex({
+      indexName: "stageNameIx",
+      sortKey: { name: "stageName", type: dynamodb.AttributeType.STRING },
     });
 
     
@@ -41,7 +54,7 @@ export class RestAPIStack extends cdk.Stack {
       
       const getAllSongsFn = new lambdanode.NodejsFunction(
         this,
-        "GetAllSongssFn",
+        "GetAllSongsFn",
         {
           architecture: lambda.Architecture.ARM_64,
           runtime: lambda.Runtime.NODEJS_18_X,
@@ -90,6 +103,23 @@ export class RestAPIStack extends cdk.Stack {
             REGION: "eu-west-1",
           },
         });
+
+        const getSongArtistFn = new lambdanode.NodejsFunction(
+          this,
+          "GetSongArtistFn",
+          {
+            architecture: lambda.Architecture.ARM_64,
+            runtime: lambda.Runtime.NODEJS_16_X,
+            entry: `${__dirname}/../lambdas/getSongArtist.ts`,  // Update to match your new Lambda file name
+            timeout: cdk.Duration.seconds(10),
+            memorySize: 128,
+            environment: {
+              TABLE_NAME: songArtistsTable.tableName,  // Updated to match the new table name
+              REGION: "eu-west-1",
+            },
+          }
+        );
+        
         
         new custom.AwsCustomResource(this, "songsddbInitData", {
           onCreate: {
@@ -98,12 +128,13 @@ export class RestAPIStack extends cdk.Stack {
             parameters: {
               RequestItems: {
                 [songsTable.tableName]: generateBatch(songs),
+                [songArtistsTable.tableName]: generateBatch(songArtists),
               },
             },
             physicalResourceId: custom.PhysicalResourceId.of("songsddbInitData"), //.of(Date.now().toString()),
           },
           policy: custom.AwsCustomResourcePolicy.fromSdkCalls({
-            resources: [songsTable.tableArn],
+            resources: [songsTable.tableArn, songArtistsTable.tableArn],
           }),
         });
         
@@ -113,6 +144,8 @@ export class RestAPIStack extends cdk.Stack {
         songsTable.grantReadWriteData(newSongFn)
         songsTable.grantReadWriteData(deleteSongFn);
         songsTable.grantReadWriteData(updateSongFn);
+        songArtistsTable.grantReadData(getSongArtistFn);
+
         
 
         const api = new apig.RestApi(this, "RestAPI", {
@@ -153,6 +186,12 @@ export class RestAPIStack extends cdk.Stack {
         songEndpoint.addMethod(
           "PUT",
           new apig.LambdaIntegration(updateSongFn, { proxy: true })
+        );
+
+        const songArtistEndpoint = songsEndpoint.addResource("artist");
+        songArtistEndpoint.addMethod(
+          "GET",
+          new apig.LambdaIntegration(getSongArtistFn, { proxy: true })
         );
 
       }
