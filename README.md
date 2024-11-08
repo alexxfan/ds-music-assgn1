@@ -6,16 +6,19 @@ __Demo:__ ... link to your YouTube video demonstration ......
 
 ### Context.
 
-State the context you chose for your web API and detail the attributes stored in the main database table.
+This assignment is a serverless REST API built for a music application, where users can store and get song details. The main database table (`Songs`) stores song information, including attributes like `songId`, `title`, `artistName` and `album`.
 
 ### App API endpoints.
 
 [ Provide a bullet-point list of the app's endpoints (excluding the Auth API) you have successfully implemented. ]
 e.g.
  
-+ POST /thing - add a new 'thing'.
-+ GET /thing/{partition-key}/ - Get all the 'things' with a specified partition key.
-+ GEtT/thing/{partition-key}?attributeX=value - Get all the 'things' with a specified partition key value and attributeX satisfying the condition .....
+- POST /songs - Add a new song to the database.
+- GET /songs/{songId} - Get all songs with a specific `songId`.
+- GET /songs - Gets all songs in the database.
+- GET /songs/artist?{songId}=attributeX=value - Get song by specific artist also querying attribute
+- PUT /songs/{songId} - Update an existing song entry .
+- DELETE /songs/{songId} - Delete a song from the database.
 
 ### Update constraint (if relevant).
 
