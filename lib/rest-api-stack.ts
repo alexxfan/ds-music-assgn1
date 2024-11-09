@@ -9,7 +9,6 @@ import { songs, songArtists } from "../seed/songs";
 import * as apig from "aws-cdk-lib/aws-apigateway";
 import { UserPool } from "aws-cdk-lib/aws-cognito";
 import { AuthApi } from './auth-api'
-import {AppApi } from './app-api'
 
 export class RestAPIStack extends cdk.Stack {
   private userPoolId: string;
@@ -37,13 +36,7 @@ export class RestAPIStack extends cdk.Stack {
       userPoolClientId: userPoolClientId,
     });
 
-    new AppApi(this, 'AppApi', {
-      userPoolId: userPoolId,
-      userPoolClientId: userPoolClientId,
-    } );
-
-
-
+    //tables
     const songsTable = new dynamodb.Table(this, "SongsTable", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "id", type: dynamodb.AttributeType.NUMBER },
@@ -59,11 +52,29 @@ export class RestAPIStack extends cdk.Stack {
       tableName: "SongArtist",
     });
 
-    songArtistsTable.addLocalSecondaryIndex({
-      indexName: "stageNameIx",
-      sortKey: { name: "stageName", type: dynamodb.AttributeType.STRING },
+    //authorizer functions
+    const authorizerFn = new lambdanode.NodejsFunction(this, "AuthorizerFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/auth/authorizer.ts`,
+      handler: "handler",
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        USER_POOL_ID: userPool.userPoolId,
+        CLIENT_ID: appClient.userPoolClientId,
+        REGION: cdk.Aws.REGION,
+      },
     });
 
+    const requestAuthorizer = new apig.RequestAuthorizer(this, "RequestAuthorizer", {
+      identitySources: [apig.IdentitySource.header("cookie")],
+      handler: authorizerFn,
+      resultsCacheTtl: cdk.Duration.minutes(0),
+    });
+
+
+    //song functions
     const getSongByIdFn = new lambdanode.NodejsFunction(this, "GetSongByIdFn", {
       architecture: lambda.Architecture.ARM_64,
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -157,6 +168,7 @@ export class RestAPIStack extends cdk.Stack {
       }),
     });
 
+    //permissions
     songsTable.grantReadData(getSongByIdFn);
     songsTable.grantReadData(getAllSongsFn);
     songsTable.grantReadWriteData(newSongFn);
@@ -164,6 +176,8 @@ export class RestAPIStack extends cdk.Stack {
     songsTable.grantReadWriteData(updateSongFn);
     songArtistsTable.grantReadData(getSongArtistFn);
 
+
+    //api gateway
     const api = new apig.RestApi(this, "RestAPI", {
       description: "demo api",
       deployOptions: {
@@ -177,6 +191,8 @@ export class RestAPIStack extends cdk.Stack {
       },
     });
 
+
+    //endpoints
     const songsEndpoint = api.root.addResource("songs");
     songsEndpoint.addMethod(
       "GET",
@@ -191,17 +207,29 @@ export class RestAPIStack extends cdk.Stack {
 
     songsEndpoint.addMethod(
       "POST",
-      new apig.LambdaIntegration(newSongFn, { proxy: true })
+      new apig.LambdaIntegration(newSongFn, { proxy: true }),
+      {
+        authorizer: requestAuthorizer,
+        authorizationType: apig.AuthorizationType.CUSTOM,
+      }
     );
 
     songEndpoint.addMethod(
       "DELETE",
-      new apig.LambdaIntegration(deleteSongFn, { proxy: true })
+      new apig.LambdaIntegration(deleteSongFn, { proxy: true }),
+      {
+        authorizer: requestAuthorizer,
+        authorizationType: apig.AuthorizationType.CUSTOM,
+      }
     );
 
     songEndpoint.addMethod(
       "PUT",
-      new apig.LambdaIntegration(updateSongFn, { proxy: true })
+      new apig.LambdaIntegration(updateSongFn, { proxy: true }),
+      {
+        authorizer: requestAuthorizer,
+        authorizationType: apig.AuthorizationType.CUSTOM,
+      }
     );
 
     const songArtistEndpoint = songsEndpoint.addResource("artist");
