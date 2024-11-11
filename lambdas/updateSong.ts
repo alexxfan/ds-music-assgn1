@@ -51,24 +51,22 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       };
     }
 
-   // Used ChatGPT for this 
+   //used ChatGPT to help wth this update command
    const commandOutput = await ddbDocClient.send(
     new UpdateCommand({
       TableName: process.env.TABLE_NAME,
       Key: { id: Number(songId) },
-      UpdateExpression: "SET title = :title, artist = :artist, album = :album, genre_ids = :genre_ids, release_date = :release_date, #lang = :language, #dur = :duration, explicit = :explicit",
+      UpdateExpression: "SET title = :title, artist = :artist, album = :album, genre_ids = :genre_ids, release_date = :release_date, #dur = :duration, explicit = :explicit",
       ExpressionAttributeValues: {
         ":title": body.title,
         ":artist": body.artist,
         ":album": body.album,
         ":genre_ids": body.genre_ids,
         ":release_date": body.release_date,
-        ":language": body.language,  
         ":duration": body.duration,   
         ":explicit": body.explicit,
       },
       ExpressionAttributeNames: {
-        "#lang": "language",  //alias for the reserved keyword "language" due to error "Invalid UpdateExpression: Attribute name is a reserved keyword; reserved keyword: language"
         "#dur": "duration"    //alias for the reserved keyword "duration" due to error "Invalid UpdateExpression: Attribute name is a reserved keyword; reserved keyword: duration"
       },
       ReturnValues: "ALL_NEW",

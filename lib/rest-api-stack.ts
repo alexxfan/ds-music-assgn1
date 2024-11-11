@@ -3,6 +3,7 @@ import * as lambdanode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as custom from "aws-cdk-lib/custom-resources";
+import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 import { generateBatch } from "../shared/util";
 import { songs, songArtists } from "../seed/songs";
@@ -168,12 +169,33 @@ export class RestAPIStack extends cdk.Stack {
       }),
     });
 
+    //translate
+    const translateSongFn = new lambdanode.NodejsFunction(this, "TranslateSongFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/translateSong.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: songsTable.tableName,
+        REGION: "eu-west-1",
+      },
+    });
+    
+    //translate permissions
+    translateSongFn.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["translate:TranslateText"],
+      resources: ["*"],
+    }));
+
     //permissions
     songsTable.grantReadData(getSongByIdFn);
     songsTable.grantReadData(getAllSongsFn);
     songsTable.grantReadWriteData(newSongFn);
     songsTable.grantReadWriteData(deleteSongFn);
     songsTable.grantReadWriteData(updateSongFn);
+    songsTable.grantReadWriteData(translateSongFn);
     songArtistsTable.grantReadData(getSongArtistFn);
 
 
@@ -236,6 +258,12 @@ export class RestAPIStack extends cdk.Stack {
     songArtistEndpoint.addMethod(
       "GET",
       new apig.LambdaIntegration(getSongArtistFn, { proxy: true })
+    );
+
+    const translationEndpoint = songEndpoint.addResource("translation");
+    translationEndpoint.addMethod(
+      "GET", 
+      new apig.LambdaIntegration(translateSongFn, { proxy: true })
     );
   }
 }

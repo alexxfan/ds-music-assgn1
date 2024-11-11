@@ -5,7 +5,6 @@ export type Song = {
   album: string;
   genre_ids: number[];
   release_date: string;
-  language: string;
   duration: number;
   explicit: boolean;
 };
