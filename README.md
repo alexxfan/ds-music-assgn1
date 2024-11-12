@@ -2,7 +2,7 @@
 
 __Name:__ Alex Fan
 
-__Demo:__ ... link to your YouTube video demonstration ......
+__Demo:__ The demo link will be attached to the txt file uploaded to Moodle.
 
 ### Context.
 
@@ -10,25 +10,22 @@ This assignment is a serverless REST API built for a music application, where us
 
 ### App API endpoints.
 
-[ Provide a bullet-point list of the app's endpoints (excluding the Auth API) you have successfully implemented. ]
-e.g.
- 
 - POST /songs - Add a new song to the database.
 - GET /songs/{songId} - Get all songs with a specific `songId`.
 - GET /songs - Gets all songs in the database.
-- GET /songs/artist?{songId}=attributeX=value - Get song by specific artist also querying attribute
-- PUT /songs/{songId} - Update an existing song entry .
+- GET /songs/artist?{songId}=attributeX=value - Get song by specific artist also querying attribute.
+- GET /songs/{songId}/translation?language={language} - Get a song and translate the title.
+- PUT /songs/{songId} - Update an existing song entry.
 - DELETE /songs/{songId} - Delete a song from the database.
 
-### Update constraint (if relevant).
+### Update.
 
-[Briefly explain your design for the solution to the PUT/Update constraint 
-- only the user who added an item to the main table could update it.]
+I added an option to update as long as you have the correct table format in place and you need a cookie from an authorized account which is signed in.
 
-### Translation persistence (if relevant).
+### Translation persistence.
 
-[Briefly explain your design for the solution to avoid repeat requests to Amazon Translate - persist translations so that Amazon Translate can be bypassed for repeat translation requests.]
+For translation, each time a song is translated it is added to an array of strings called translation cache. Before translating a song, the endpoint will check the cache to see if the song has already been translated in the chosen language and if it is, it will just return the translated string rather than translating it again.
 
-###  Extra (If relevant).
+###  Extra.
 
-[ State whether you have created a multi-stack solution for this assignment or used lambda layers to speed up update deployments. Also, mention any aspect of the CDK framework __that was not covered in the lectures that you used in this assignment. ]
+I have a multi-stack solution by having one stack deal with the REST Api endpoints and the other stack deal with authentication.
